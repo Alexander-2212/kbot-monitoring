@@ -147,13 +147,54 @@ kubectl -n monitoring port-forward svc/grafana 3000:80
 
 | Панель | Джерело | Запит |
 |---|---|---|
-| Messages handled / Failed replies | Prometheus | `sum(increase(kbot_commands_total[$__range]))` |
-| p95 handling time, Handling time | Prometheus | `histogram_quantile(0.95, sum by (le) (rate(kbot_command_duration_seconds_bucket[5m])))` |
+| Messages handled / Failed replies | Prometheus | `sum(kbot_commands_total)` - накопичувально від старту пода* |
+| p95 handling time | Prometheus | `histogram_quantile(0.95, sum by (le) (kbot_command_duration_seconds_bucket))` |
+| Handling time p50/p95 | Prometheus | `histogram_quantile(0.95, sum by (le) (rate(kbot_command_duration_seconds_bucket[5m])))` |
 | Messages per command | Prometheus | `sum by (command) (increase(kbot_commands_total[$__rate_interval]))` |
 | kbot pod restarts, memory, CPU | Prometheus | kube-state-metrics, cAdvisor |
 | kbot logs | Loki | `{namespace="kbot"}` - розгорніть рядок, `TraceID` веде в Tempo |
 | Recent kbot traces | Tempo | TraceQL `{resource.service.name="kbot"}` |
 | Log lines per node | Loki | `sum by (node) (count_over_time({job="fluent-bit"}[1m]))` |
+
+\* OTLP-лічильник потрапляє в Prometheus одразу зі значенням 1, тож `increase()` не бачить
+першого повідомлення кожного нового ряду. Stat-панелі тому показують накопичене значення.
+
+## Результати перевірки
+
+Кластер k3d `monitoring` (1 server + 2 agents), усі Flux Kustomizations і HelmReleases - `Ready`.
+Боту надіслано `/ping`, `time`, `trace` і довільний текст.
+
+**1. Лог kbot (stdout → Fluent Bit → Loki)** - `trace_id` в кожному рядку запиту:
+
+```json
+{"time":"2026-09-14T23:02:52.411918017Z","level":"INFO","msg":"message received","text":"random text for trace_id","command":"unknown","trace_id":"b8247bca5c69b39feeeb8377557917a4","span_id":"dc78917cfe5c5f9c"}
+{"time":"2026-09-14T23:02:52.467794187Z","level":"INFO","msg":"reply sent","duration_ms":55,"trace_id":"b8247bca5c69b39feeeb8377557917a4","span_id":"4973d193c305b0a2"}
+```
+
+**2. Той самий TraceID у Tempo** (`/api/v2/traces/b8247bca5c69b39feeeb8377557917a4`):
+
+```json
+[{"service":"kbot","pod":"kbot-76f88c7bdd-qgxds","spans":[{"name":"telegram sendMessage"},{"name":"kbot.command unknown"}]}]
+```
+
+Зворотний пошук `{namespace="kbot"} |= "b8247bca5c69b39feeeb8377557917a4"` у Loki повертає обидва рядки запиту.
+
+**3. Метрики kbot у Prometheus** (OTLP, `job="kbot"`, мітка пода з ресурсу):
+
+```json
+{"command":"ping","status":"ok","job":"kbot","pod":"kbot-76f88c7bdd-qgxds","v":"1"}
+{"command":"time","status":"ok","job":"kbot","pod":"kbot-76f88c7bdd-qgxds","v":"1"}
+{"command":"trace","status":"ok","job":"kbot","pod":"kbot-76f88c7bdd-qgxds","v":"1"}
+{"command":"unknown","status":"ok","job":"kbot","pod":"kbot-76f88c7bdd-qgxds","v":"1"}
+```
+
+**4. Логи всіх нод у Loki** - `sum by (node) (count_over_time({job="fluent-bit"}[5m]))`:
+
+```json
+{"node":"k3d-monitoring-agent-0","lines":"23"}
+{"node":"k3d-monitoring-agent-1","lines":"34"}
+{"node":"k3d-monitoring-server-0","lines":"41"}
+```
 
 ## Відповідність критеріям
 

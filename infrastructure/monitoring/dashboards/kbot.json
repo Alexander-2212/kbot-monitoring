@@ -12,14 +12,15 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Messages handled",
+      "title": "Messages handled (since pod start)",
+      "description": "OTLP counters enter Prometheus at their first value, so increase() misses the first message of every series; the cumulative value does not.",
       "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(increase(kbot_commands_total[$__range])) or vector(0)",
+          "expr": "sum(kbot_commands_total) or vector(0)",
           "instant": true
         }
       ],
@@ -29,14 +30,14 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Failed replies",
+      "title": "Failed replies (since pod start)",
       "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(increase(kbot_commands_total{status=\"error\"}[$__range])) or vector(0)",
+          "expr": "sum(kbot_commands_total{status=\"error\"}) or vector(0)",
           "instant": true
         }
       ],
@@ -53,14 +54,14 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "p95 handling time",
+      "title": "p95 handling time (since pod start)",
       "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(kbot_command_duration_seconds_bucket[$__range])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (kbot_command_duration_seconds_bucket))",
           "instant": true
         }
       ],
