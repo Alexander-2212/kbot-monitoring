@@ -1,0 +1,35 @@
+# Order of reconciliation: controllers (OpenTelemetry Operator and its CRDs)
+# -> monitoring stack (needs the OpenTelemetryCollector CRD) -> apps.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-controllers
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  timeout: 10m
+  path: ./infrastructure/controllers
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: monitoring
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: infra-controllers
+  interval: 10m
+  retryInterval: 1m
+  timeout: 15m
+  path: ./infrastructure/monitoring
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system

@@ -1,0 +1,14 @@
+# Helm chart of kbot from the develop branch; CI bumps the image tag there.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: kbot
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/Alexander-2212/kbot
+  ref:
+    branch: develop
+  ignore: |
+    /*
+    !/helm/

@@ -1,0 +1,37 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kbot
+  namespace: flux-system
+spec:
+  interval: 1m
+  releaseName: kbot
+  targetNamespace: kbot
+  storageNamespace: kbot
+  chart:
+    spec:
+      chart: ./helm
+      sourceRef:
+        kind: GitRepository
+        name: kbot
+      reconcileStrategy: Revision
+      interval: 1m
+  install:
+    timeout: 3m
+    remediation:
+      retries: -1
+  upgrade:
+    timeout: 3m
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  values:
+    # Secret kbot/kbot-token (key "token") is created once by hand, see README.
+    tele:
+      existingSecret: kbot-token
+      secretKey: token
+    # Traces and metrics go to the operator-managed collector.
+    otel:
+      endpoint: http://otel-collector.monitoring.svc.cluster.local:4317
+      metricExportInterval: 15000
+      resourceAttributes: deployment.environment=k3d-monitoring

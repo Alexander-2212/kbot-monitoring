@@ -1,0 +1,34 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tempo
+  namespace: monitoring
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: tempo
+      version: "3.0.0"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana-community
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    tempo:
+      reportingEnabled: false
+      retention: 72h
+      # Traces arrive from the OpenTelemetry Collector over OTLP. The chart's
+      # port templates expect the default jaeger receiver to stay defined.
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: "0.0.0.0:4317"
+            http:
+              endpoint: "0.0.0.0:4318"

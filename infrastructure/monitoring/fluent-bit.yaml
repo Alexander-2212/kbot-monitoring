@@ -1,0 +1,67 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: fluent-bit
+  namespace: monitoring
+spec:
+  interval: 30m
+  dependsOn:
+    - name: loki
+  chart:
+    spec:
+      chart: fluent-bit
+      version: "0.58.2"
+      sourceRef:
+        kind: HelmRepository
+        name: fluent
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    kind: DaemonSet
+    # Every node, the control plane included, ships its container logs.
+    tolerations:
+      - operator: Exists
+    podAnnotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "2020"
+      prometheus.io/path: /api/v2/metrics/prometheus
+    config:
+      inputs: |
+        [INPUT]
+            Name tail
+            Path /var/log/containers/*.log
+            multiline.parser cri, docker
+            Tag kube.*
+            Mem_Buf_Limit 10MB
+            Skip_Long_Lines On
+
+      # Merge_Log lifts JSON fields (kbot: level, msg, trace_id, span_id)
+      # out of the raw line into the record.
+      filters: |
+        [FILTER]
+            Name kubernetes
+            Match kube.*
+            Merge_Log On
+            Keep_Log Off
+            K8S-Logging.Parser On
+            K8S-Logging.Exclude On
+            Labels Off
+            Annotations Off
+
+      # Low-cardinality stream labels; everything else stays in the JSON line.
+      outputs: |
+        [OUTPUT]
+            Name loki
+            Match kube.*
+            Host loki.monitoring.svc.cluster.local
+            Port 3100
+            Labels job=fluent-bit, node=$kubernetes['host'], namespace=$kubernetes['namespace_name'], pod=$kubernetes['pod_name'], container=$kubernetes['container_name']
+            Remove_Keys kubernetes, stream, _p
+            Line_Format json
+            Auto_Kubernetes_Labels Off
+            Retry_Limit 5

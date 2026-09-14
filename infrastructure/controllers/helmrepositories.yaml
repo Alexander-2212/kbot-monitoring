@@ -1,0 +1,36 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: open-telemetry
+  namespace: flux-system
+spec:
+  interval: 12h
+  url: https://open-telemetry.github.io/opentelemetry-helm-charts
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: prometheus-community
+  namespace: flux-system
+spec:
+  interval: 12h
+  url: https://prometheus-community.github.io/helm-charts
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: fluent
+  namespace: flux-system
+spec:
+  interval: 12h
+  url: https://fluent.github.io/helm-charts
+---
+# Loki, Tempo and Grafana charts are maintained in grafana-community.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: grafana-community
+  namespace: flux-system
+spec:
+  interval: 12h
+  url: https://grafana-community.github.io/helm-charts

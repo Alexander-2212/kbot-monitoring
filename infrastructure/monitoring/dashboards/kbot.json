@@ -1,0 +1,213 @@
+{
+  "uid": "kbot-observability",
+  "title": "kbot observability",
+  "description": "kbot metrics (OpenTelemetry -> Prometheus), logs (Fluent Bit -> Loki) and traces (OpenTelemetry -> Tempo), linked by trace_id",
+  "tags": ["kbot", "opentelemetry"],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Messages handled",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(increase(kbot_commands_total[$__range])) or vector(0)",
+          "instant": true
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Failed replies",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(increase(kbot_commands_total{status=\"error\"}[$__range])) or vector(0)",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "p95 handling time",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(kbot_command_duration_seconds_bucket[$__range])))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 2 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "kbot pod restarts",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=\"kbot\"}) or vector(0)",
+          "instant": true
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Messages per command",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (command) (increase(kbot_commands_total[$__rate_interval]))",
+          "legendFormat": "{{command}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Handling time (reply to Telegram included)",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(kbot_command_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(kbot_command_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "kbot memory (working set)",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"kbot\", container=\"kbot\"})",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "kbot CPU",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"kbot\", container=\"kbot\"}[5m]))",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "cores" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 9,
+      "type": "logs",
+      "title": "kbot logs (expand a line, trace_id links to Tempo)",
+      "gridPos": { "x": 0, "y": 19, "w": 24, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{namespace=\"kbot\"}",
+          "queryType": "range"
+        }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "prettifyLogMessage": false }
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Recent kbot traces",
+      "gridPos": { "x": 0, "y": 29, "w": 12, "h": 9 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{resource.service.name=\"kbot\"}",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Log lines per node (Fluent Bit on every node)",
+      "gridPos": { "x": 12, "y": 29, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (node) (count_over_time({job=\"fluent-bit\"}[1m]))",
+          "legendFormat": "{{node}}",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    }
+  ]
+}

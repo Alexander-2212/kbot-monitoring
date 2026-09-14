@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - prometheus.yaml
+  - loki.yaml
+  - tempo.yaml
+  - grafana.yaml
+  - fluent-bit.yaml
+  - otel-collector.yaml
+configMapGenerator:
+  # Picked up by the Grafana dashboards sidecar through the label.
+  - name: grafana-dashboard-kbot
+    files:
+      - dashboards/kbot.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"

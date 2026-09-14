@@ -1,0 +1,65 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: prometheus
+      version: "29.30.0"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    alertmanager:
+      enabled: false
+    prometheus-pushgateway:
+      enabled: false
+    # Cluster state (pods, restarts) and per-node metrics for every node.
+    kube-state-metrics:
+      enabled: true
+    prometheus-node-exporter:
+      enabled: true
+      # k3d nodes are containers: / is not a shared mount there.
+      hostRootFsMount:
+        enabled: false
+    server:
+      # OTLP receiver: the OpenTelemetry Collector pushes kbot metrics to
+      # http://prometheus-server/api/v1/otlp/v1/metrics.
+      extraFlags:
+        - web.enable-lifecycle
+        - web.enable-otlp-receiver
+      otlp:
+        promote_resource_attributes:
+          - service.instance.id
+          - service.name
+          - service.version
+          - k8s.namespace.name
+          - k8s.pod.name
+          - k8s.node.name
+          - k8s.deployment.name
+      tsdb:
+        # OTLP batches can arrive slightly out of order.
+        out_of_order_time_window: 30m
+      global:
+        scrape_interval: 30s
+        evaluation_interval: 30s
+      retention: 3d
+      persistentVolume:
+        enabled: true
+        size: 5Gi
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 1Gi
