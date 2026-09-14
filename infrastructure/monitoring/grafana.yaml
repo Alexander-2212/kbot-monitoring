@@ -28,6 +28,12 @@ spec:
     adminUser: admin
     persistence:
       enabled: false
+    # Local demo cluster, reachable only via port-forward: read-only anonymous
+    # access lets the dashboard open without a login. Editing still needs admin.
+    grafana.ini:
+      auth.anonymous:
+        enabled: true
+        org_role: Viewer
     sidecar:
       dashboards:
         enabled: true
