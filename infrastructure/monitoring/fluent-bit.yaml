@@ -26,6 +26,16 @@ spec:
     # Every node, the control plane included, ships its container logs.
     tolerations:
       - operator: Exists
+    # k3d nodes have no /etc/machine-id (the chart mounts it as a File) and
+    # k3s keeps container logs under /var/log/pods, not /var/lib/docker.
+    daemonSetVolumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+    daemonSetVolumeMounts:
+      - name: varlog
+        mountPath: /var/log
+        readOnly: true
     podAnnotations:
       prometheus.io/scrape: "true"
       prometheus.io/port: "2020"
